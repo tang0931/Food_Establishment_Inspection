@@ -5,6 +5,12 @@ Using historical inspection data to help health inspectors prioritize what to ch
 Inspection records tell you what a restaurant did wrong last time. 
 This project asks a different question: what's it likely to do wrong next time — combining exploratory analysis with a machine learning model that predicts the most likely violation types for a restaurant's next inspection, giving inspectors a targeted checklist.
 
+`106K+ records` · `12,261 restaurants` · `53 violation types` · `9.7x vs. random` · `2.5x vs. popularity baseline`
+
+- 📊 Merged & cleaned 106K+ inspection records across 12,261 restaurants
+- 🔁 Found 41% of restaurants have repeat violations — a pattern that became the model's strongest predictor
+- 🎯 Built a model that beats random guessing by **~9.7x** and a naive "most common violations" baseline by **~2.5x** on Precision@3
+
 ## Data Sources
 
 - [Food Establishment Inspection Data](https://data.kingcounty.gov/Health-Wellness/Food-Establishment-Inspection-Data/r878-4sxa/about_data) — the primary dataset: inspections, violations, scores, and grades.
