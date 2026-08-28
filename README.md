@@ -62,6 +62,17 @@ They're also far less likely to resolve those violations: only **12.8%** of "Nee
 
 **Evaluation**: Precision@3, Recall@3, and F1@3 — of the 3 violation types suggested, how many were actually cited (precision); of the violations that did occur, how many were caught in the top 3 (recall); and F1@3 balances the two into a single score, since a model can't win just by maximizing one at the other's expense.
 
+### Hyper-parameter tuning
+
+Tuned Random Forest and XGBoost with a small grid search, scored on **validation log loss** rather than AUC — log loss is calibration-aware, which matters here since the P(any) gate multiplies 53 individual probabilities together, so miscalibrated values would distort that aggregation even if they're correctly *ranked*. Evaluated on an internal validation split (the last 20% of the training period, chronologically) rather than full cross-validation, given the size of the data (2.3M+ training rows).
+
+| Model | Parameters searched | Best found | Validation log loss |
+|---|---|---|---|
+| Random Forest | `n_estimators` (300, 600), `max_depth` (12, 16) | `n_estimators=600, max_depth=16` | 0.0737 |
+| XGBoost | `max_depth` (6, 8), `learning_rate` (0.05, 0.1) | `max_depth=6, learning_rate=0.05` | 0.0732 |
+
+Both searches were intentionally small — a handful of hand-picked candidates, not an exhaustive grid — and improved F1@3 by only a few thousandths relative to the untuned defaults, which is reflected in the comparison below.
+
 ### Model comparison
 
 | Model | Precision@3 | Recall@3 | F1@3 |
@@ -69,17 +80,18 @@ They're also far less likely to resolve those violations: only **12.8%** of "Nee
 | Random guess (3 of 53) | 0.017 | 0.056 | 0.027 |
 | Always suggest the 3 most common violations | 0.067 | 0.215 | 0.102 |
 | Logistic Regression | 0.145 | 0.197 | 0.167 |
-| Random Forest | 0.145 | 0.234 | **0.179** |
-| **XGBoost** | **0.158** | 0.208 | **0.179** |
+| Random Forest (tuned) | 0.151 | 0.223 | 0.180 |
+| **XGBoost (tuned)** | **0.165** | 0.202 | **0.182** |
 
-Random Forest and XGBoost are essentially tied on F1@3, each roughly **6.6x better than random guessing** and **~75% better than the naive "always suggest the most common violations"** baseline — without any hyperparameter tuning.
+- **Random Forest** clearly beats both baselines: Precision@3 of 0.151 is roughly **8.9x random guessing** and **~2.3x the naive "always suggest the most common violations"** baseline, and it has the best recall/catch-rate (0.223 / 0.658) of the three models.
+- **XGBoost** has the best overall F1@3 (0.182) — highest Precision@3 (0.165, ~9.7x random guessing and ~2.5x the popularity baseline) and lowest false-alarm rate (0.213), trading away some recall/catch-rate compared to Random Forest.
 
 **What actually drives the prediction** (Random Forest feature importance):
-1. Citywide base rate of the violation type — **32%**
-2. Whether that violation happened at the restaurant's *previous* inspection — **22%**
-3. How often that violation has happened at this restaurant historically — **21%**
+1. Citywide base rate of the violation type — **31%**
+2. Whether that violation happened at the restaurant's *previous* inspection — **19%**
+3. How often that violation has happened at this restaurant historically — **17%**
 
-Together, a restaurant's own violation history accounts for **43%** of the model's decision-making — more than twice the weight of the citywide baseline alone.
+Together, a restaurant's own violation history accounts for **36%** of the model's total feature importance — slightly more than the citywide baseline alone, rather than dominating it.
 
 **A second decision, before the top-3 list**: not every inspection should get a checklist — a restaurant with a clean history usually doesn't need one. Before ranking violation types, the model first estimates the probability that *any* violation will occur at all, and only issues a top-3 list when that probability crosses a threshold — otherwise inspectors see nothing extra for that visit. This gate has an AUC of ~0.75, meaning it meaningfully separates at-risk from clean inspections, though it isn't perfect — some false alarms and some misses are inevitable trade-offs, tuned via the threshold.
 
@@ -87,5 +99,4 @@ Together, a restaurant's own violation history accounts for **43%** of the model
 
 ## Future Works
 
-- Try gradient-boosting hyperparameter tuning beyond the current defaults.
 - Revisit the "how many suggestions to show" trade-off (currently top 3) with input from an actual health inspector.
